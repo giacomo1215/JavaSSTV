@@ -1,49 +1,74 @@
-import java.nio.Buffer;
-import java.util.Random;
-import javax.swing.*;
-import javax.xml.transform.Source;
+import javax.imageio.ImageIO;
 import javax.sound.sampled.*;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 
-/**
- * SSTV (Slow-Scan Television) Image to Audio Converter
- * 
- * This program demonstrates the basic principles of SSTV by converting a simple color
- * image into audio signals. It generates a random color pattern and converts each pixel
- * into corresponding audio frequencies, similar to how traditional SSTV works.
- */
 public class Program {
-
+    private static BufferedImage image;
     public static final float SAMPLE_RATE = 3845;
 
     public static void main(String[] args) {
-        Random random = new Random();
-        int width = 16;  // Width of the test image
-        int height = 16; // Height of the test image
+        JFrame frame = new JFrame("Image to Sound");
+        frame.setSize(500, 500);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new BorderLayout());
 
-        // Create a 2D array to store the color information for each pixel
-        Color[][] image = new Color[width][height];
+        JLabel imageLabel = new JLabel("No Image Selected", SwingConstants.CENTER);
+        JButton uploadButton = new JButton("Upload Image");
+        JButton playButton = new JButton("Play Tones");
+
+        frame.add(uploadButton, BorderLayout.NORTH);
+        frame.add(imageLabel, BorderLayout.CENTER);
+        frame.add(playButton, BorderLayout.SOUTH);
+
+        uploadButton.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                File file = chooser.getSelectedFile();
+                try {
+                    image = ImageIO.read(file);
+                    ImageIcon icon = new ImageIcon(image.getScaledInstance(200, 200, Image.SCALE_SMOOTH));
+                    imageLabel.setIcon(icon);
+                    imageLabel.setText("");  // Remove text when an image is loaded
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+
+        playButton.addActionListener(e -> {
+            if (image != null) {
+                playImageTones(image);
+            }
+        });
+
+        frame.setVisible(true);
+    }
+
+    public static void playImageTones(BufferedImage img) {
+        int width = img.getWidth();
+        int height = img.getHeight();
         
-        // Generate random colors for each pixel and convert to audio
-        for (int i = 0; i < height; i++) {
-            for (int j = 0; j < width; j++) {
-                // Create a random RGB color
-                Color color = new Color(
-                    (int)random.nextInt(256),  // Red value (0-255)
-                    (int)random.nextInt(256),  // Green value (0-255)
-                    (int)random.nextInt(256)   // Blue value (0-255)
-                );
-                image[j][i] = color;
-                // Convert the color to an audio tone and play it
-                generateTone(color.getDecimal(), 60);
+        for (int y = 0; y < height; y += 10) {  // Skip pixels for efficiency
+            for (int x = 0; x < width; x += 10) {
+                int pixel = img.getRGB(x, y);
+                int r = (pixel >> 16) & 0xFF;
+                int g = (pixel >> 8) & 0xFF;
+                int b = pixel & 0xFF;
+                
+                int decimalColor = (r << 16) | (g << 8) | b;
+                double frequency = map(decimalColor, 0, 16777215, 100, 5000);
+                generateTone(frequency, 100);  // Play for 100ms
             }
         }
+    }
 
-        // Create and display the GUI window showing the generated image
-        JFrame frame = new JFrame("SSTV Image Preview");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.add(new ImagePanel(image, 50)); 
-        frame.pack();
-        frame.setVisible(true);
+
+    public static double map(int value, int inMin, int inMax, int outMin, int outMax) {
+        return outMin + (double) (value - inMin) * (outMax - outMin) / (inMax - inMin);
     }
 
     /**
