@@ -137,4 +137,28 @@ public class Sound {
         line.drain();
         line.close();
     }
+
+    public void playScanLine(double[] frequencies, int scanDurationMs) throws LineUnavailableException {
+        int totalSamples = (int) ((scanDurationMs / 1000.0) * SAMPLE_RATE);
+        int samplesPerPixel = totalSamples / frequencies.length;
+        byte[] buffer = new byte[totalSamples * 2];
+        double angle = 0.0;
+    
+        for (int i = 0; i < totalSamples; i++) {
+            int pixelIndex = Math.min(i / samplesPerPixel, frequencies.length - 1);
+            double freq = frequencies[pixelIndex];
+            angle += 2.0 * Math.PI * freq / SAMPLE_RATE;
+            short sample = (short) (Math.sin(angle) * Short.MAX_VALUE);
+            buffer[i * 2] = (byte) (sample & 0xFF);
+            buffer[i * 2 + 1] = (byte) ((sample >> 8) & 0xFF);
+        }
+    
+        AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
+        line = AudioSystem.getSourceDataLine(format);
+        line.open(format);
+        line.start();
+        line.write(buffer, 0, buffer.length);
+        line.drain();
+        line.close();
+    }
 }

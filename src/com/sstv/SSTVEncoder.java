@@ -1,34 +1,28 @@
 package src.com.sstv;
 
-import javax.sound.sampled.*;
+import javax.sound.sampled.LineUnavailableException;
 
 public class SSTVEncoder {
+    private static final int SAMPLE_RATE = 44100;
 
-    /**
-     * Encodes a color pixel into SSTV-compatible audio frequencies.
-     * @param color The Color object representing the pixel.
-     */
-    public static void encodePixel(Color color) throws LineUnavailableException {
-        double[] yCbCr = color.toYCbCr();
-        double y = yCbCr[0], cb = yCbCr[1], cr = yCbCr[2];
-
-        // Convert Y, Cb, Cr to frequencies for Scottie DX
-        double Fy  = 1500 + (y / 255.0) * 800;
-        double Fcb = 1900 + ((cb - 128) / 255.0) * 400;
-        double Fcr = 1500 + ((cr - 128) / 255.0) * 400;
-
-        playTone(Fy, 100);
-        playTone(Fcb, 100);
-        playTone(Fcr, 100);
+    // Play a sync pulse (1200 Hz for specified duration)
+    public static void playSyncPulse(int durationMs) throws LineUnavailableException {
+        new Sound(1200, durationMs).playTone();
     }
 
-    /**
-     * Plays a tone using the Sound class.
-     * @param frequency The frequency of the tone in Hz.
-     * @param duration The duration of the tone in milliseconds.
-     */
-    private static void playTone(double frequency, int duration) throws LineUnavailableException {
-        Sound sound = new Sound(frequency, duration);
-        sound.playTone();
+    // Play a porch (1500 Hz for specified duration)
+    public static void playPorch(int durationMs) throws LineUnavailableException {
+        new Sound(1500, durationMs).playTone();
+    }
+
+    // Play a scan line for a color channel
+    public static void playScanLine(double[] frequencies, int durationMs) throws LineUnavailableException {
+        Sound sound = new Sound(0, 0, 0); // Dummy initialization
+        sound.playScanLine(frequencies, durationMs);
+    }
+
+    // Convert RGB component to SSTV frequency (1500-2300 Hz)
+    public static double rgbToFrequency(int component) {
+        return 1500.0 + (component / 255.0) * 800.0;
     }
 }
