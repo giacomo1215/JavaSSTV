@@ -5,9 +5,10 @@ import javax.sound.sampled.*;
 public class Sound {
     // private static final int SAMPLE_RATE = 11025;   // Sample rate in Hz (low-quality for reduced processing load)
     private static final int SAMPLE_RATE = 44100;   // Sample rate in Hz (low-quality for reduced processing load)
+    private static SourceDataLine line;
     private double frequency;                       // Frequency of the tone in Hz
-    private double startFreq;                       // Frequency of the tone in Hz
-    private double endFreq;                         // Frequency of the tone in Hz
+    private double startFreq;                       // Frequency of the start tone in Hz (FSK)
+    private double endFreq;                         // Frequency of the end tone in Hz   (FSK)
     private int duration;                           // Duration of the tone in milliseconds
 
     /**
@@ -20,7 +21,14 @@ public class Sound {
         this.duration = duration;
     }
 
+    /**
+     * Constructor to initialize a sound object in FSK with specific frequencies and duration
+     * @param startFreq The frequency at the start of the tone in Hz
+     * @param endFreq The frequency ad the end of the tone in Hz
+     * @param duration The duration of the tone in milliseconds
+     */
     public Sound(double startFreq, double endFreq, int duration) {
+        this.frequency = startFreq;     // I set the pure sine frequency to avoid null references
         this.startFreq = startFreq;
         this.endFreq = endFreq;
         this.duration = duration;
@@ -53,7 +61,7 @@ public class Sound {
         AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
 
         // Open an audio line and play the generated sound
-        SourceDataLine line = AudioSystem.getSourceDataLine(format);
+        line = AudioSystem.getSourceDataLine(format);
         line.open(format);  // Open the line with the specified format
         line.start();       // Start playback
         line.write(buffer, 0, buffer.length); // Send audio data to the speaker
@@ -62,13 +70,14 @@ public class Sound {
     }
 
     /**
-     * Generates and plays an FSK-modulated signal.
-     * @param startFreq Starting frequency in Hz.
-     * @param endFreq Ending frequency in Hz.
-     * @param duration Duration in milliseconds.
+     * Plays an FSK-modulated signal.
      * @throws LineUnavailableException if audio line cannot be opened.
      */
     public void playFSK() throws LineUnavailableException {
+        if (startFreq == 0 || endFreq == 0) {
+            throw new IllegalStateException("FSK frequencies not set.");
+        }
+
         int numSamples = (int) ((duration / 1000.0) * SAMPLE_RATE);
         byte[] buffer = new byte[numSamples * 2];
 
@@ -76,7 +85,8 @@ public class Sound {
             // Linearly interpolate the frequency between startFreq and endFreq
             double freq = startFreq + (endFreq - startFreq) * (i / (double) numSamples);
             double angle = 2.0 * Math.PI * freq * i / SAMPLE_RATE;
-            short sample = (short) (Math.sin(angle) * Short.MAX_VALUE);
+            double amplitude = (i < numSamples * 0.05 || i > numSamples * 0.95) ? (i / (numSamples * 0.05)) : 1.0;
+            short sample = (short) (Math.sin(angle) * Short.MAX_VALUE * amplitude);
 
             // Store in little-endian format
             buffer[2 * i] = (byte) (sample & 0xFF);
@@ -87,7 +97,7 @@ public class Sound {
         AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
 
         // Open an audio line and play the generated sound
-        SourceDataLine line = AudioSystem.getSourceDataLine(format);
+        line = AudioSystem.getSourceDataLine(format);
         line.open(format);
         line.start();
         line.write(buffer, 0, buffer.length);
