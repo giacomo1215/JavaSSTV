@@ -1,5 +1,7 @@
 package src.com.sstv;
 
+import java.io.ByteArrayOutputStream;
+
 import javax.sound.sampled.*;
 
 public class Sound {
@@ -37,6 +39,16 @@ public class Sound {
     // Getter methods to retrieve the frequency and duration values
     public double getFrequency() { return frequency; }
     public int getDuration() { return duration; }
+
+    public static void renderToBuffer(ByteArrayOutputStream buffer, double freq, int durationMs) {
+        int samples = (int)(durationMs / 1000.0 * SAMPLE_RATE);
+        for (int i = 0; i < samples; i++) {
+            double angle = 2.0 * Math.PI * freq * i / SAMPLE_RATE;
+            short sample = (short)(Math.sin(angle) * Short.MAX_VALUE);
+            buffer.write((byte)(sample & 0xFF));
+            buffer.write((byte)((sample >> 8) & 0xFF));
+        }
+    }
 
     /**
      * Generates and plays a sine wave tone with the specified frequency and duration.
@@ -155,6 +167,16 @@ public class Sound {
     
         AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
         line = AudioSystem.getSourceDataLine(format);
+        line.open(format);
+        line.start();
+        line.write(buffer, 0, buffer.length);
+        line.drain();
+        line.close();
+    }
+
+    public static void playBuffer(byte[] buffer) throws LineUnavailableException {
+        AudioFormat format = new AudioFormat(44100, 16, 1, true, false);
+        SourceDataLine line = AudioSystem.getSourceDataLine(format);
         line.open(format);
         line.start();
         line.write(buffer, 0, buffer.length);

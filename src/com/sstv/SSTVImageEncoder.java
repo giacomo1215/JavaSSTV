@@ -1,65 +1,115 @@
 package src.com.sstv;
 
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import javax.imageio.ImageIO;
 
 public class SSTVImageEncoder {
+    private static final int SAMPLE_RATE = 44100;
+    private static final int LINE_DURATION_MS = 445;  // Scottie DX line duration
+    
     public static void encodeImage(String filename) throws Exception {
         BufferedImage img = ImageIO.read(new File(filename));
         int width = img.getWidth();
         int height = img.getHeight();
+        
+        ByteArrayOutputStream audioBuffer = new ByteArrayOutputStream();
 
-        // Transmit VIS header (Scottie DX: 0100000000)
-        int[] visCode = {0, 1, 0, 0, 0, 0, 0, 0, 0, 0}; // Example VIS for Scottie 2
-        Sound visSound = new Sound(1100, 1300, 30);
-        visSound.playFSK(visCode, 30);
+        // Add VIS Header (Scottie DX: 01101000 / 0x68)
+        int[] visCode = {0, 1, 1, 0, 1, 0, 0, 0};  // Correct 8-bit VIS
+        renderFSK(audioBuffer, visCode, 30);
 
-        // Vertical sync and porch
-        SSTVEncoder.playSyncPulse(9);    // 9ms sync
-        SSTVEncoder.playPorch(1);        // 1.5ms porch (approximated to 1ms)
+        // Vertical Sync (9ms 1200Hz + 1.5ms 1500Hz)
+        renderTone(audioBuffer, 1200, 9);
+        renderTone(audioBuffer, 1500, 1.5f);
 
         for (int y = 0; y < height; y++) {
-            long lineStart = System.currentTimeMillis();
+            long lineStart = System.nanoTime();
+            
+            // Horizontal Sync
+            renderTone(audioBuffer, 1200, 9);
+            renderTone(audioBuffer, 1500, 1.5f);
 
-            // Horizontal sync and separator
-            SSTVEncoder.playSyncPulse(9);
-            SSTVEncoder.playPorch(1);
+            // Green Channel (138.24ms)
+            renderColorChannel(audioBuffer, img, y, width, 1); // Green offset
+            renderTone(audioBuffer, 1500, 1.5f);  // Separator
+            
+            // Blue Channel (138.24ms)
+            renderColorChannel(audioBuffer, img, y, width, 0); // Blue offset
+            renderTone(audioBuffer, 1500, 1.5f);  // Separator
+            
+            // Red Channel (138.24ms)
+            renderColorChannel(audioBuffer, img, y, width, 2); // Red offset
+            renderTone(audioBuffer, 1500, 1.5f);  // Line porch
 
-            // Green scan
-            double[] greenFreqs = new double[width];
-            for (int x = 0; x < width; x++) {
-                int g = (img.getRGB(x, y) >> 8) & 0xFF;
-                greenFreqs[x] = SSTVEncoder.rgbToFrequency(g);
+            // Calculate remaining time for line duration
+            double elapsedMs = (System.nanoTime() - lineStart) / 1e6;
+            if (elapsedMs < LINE_DURATION_MS) {
+                renderSilence(audioBuffer, LINE_DURATION_MS - elapsedMs);
             }
-            SSTVEncoder.playScanLine(greenFreqs, 138);
+        }
+        
+        // Play entire audio in one operation
+        Sound.playBuffer(audioBuffer.toByteArray());
+    }
 
-            SSTVEncoder.playPorch(1); // Separator
+    private static void renderColorChannel(ByteArrayOutputStream buffer, 
+            BufferedImage img, int y, int width, int colorOffset) {
+        double[] frequencies = new double[width];
+        for (int x = 0; x < width; x++) {
+            int rgb = img.getRGB(x, y);
+            int value = (rgb >> (8 * (2 - colorOffset))) & 0xFF; // 2=Red,1=Green,0=Blue
+            frequencies[x] = 1500 + (value / 255.0) * 800;
+        }
+        renderScanLine(buffer, frequencies, 138.24f);
+    }
 
-            // Blue scan
-            double[] blueFreqs = new double[width];
-            for (int x = 0; x < width; x++) {
-                int b = img.getRGB(x, y) & 0xFF;
-                blueFreqs[x] = SSTVEncoder.rgbToFrequency(b);
-            }
-            SSTVEncoder.playScanLine(blueFreqs, 138);
+    private static void renderTone(ByteArrayOutputStream buffer, 
+            double freq, float durationMs) {
+        int samples = (int)(durationMs * SAMPLE_RATE / 1000);
+        for (int i = 0; i < samples; i++) {
+            short sample = (short)(Math.sin(2 * Math.PI * freq * i / SAMPLE_RATE) 
+                    * Short.MAX_VALUE);
+            buffer.write((byte)(sample & 0xFF));
+            buffer.write((byte)(sample >> 8 & 0xFF));
+        }
+    }
 
-            SSTVEncoder.playPorch(1); // Separator
+    private static void renderScanLine(ByteArrayOutputStream buffer,
+            double[] frequencies, float durationMs) {
+        int totalSamples = (int)(durationMs * SAMPLE_RATE / 1000);
+        int samplesPerPixel = totalSamples / frequencies.length;
+        
+        for (int i = 0; i < totalSamples; i++) {
+            int px = Math.min(i / samplesPerPixel, frequencies.length - 1);
+            double freq = frequencies[px];
+            short sample = (short)(Math.sin(2 * Math.PI * freq * i / SAMPLE_RATE) 
+                    * Short.MAX_VALUE);
+            buffer.write((byte)(sample & 0xFF));
+            buffer.write((byte)(sample >> 8 & 0xFF));
+        }
+    }
 
-            // Red scan
-            double[] redFreqs = new double[width];
-            for (int x = 0; x < width; x++) {
-                int r = (img.getRGB(x, y) >> 16) & 0xFF;
-                redFreqs[x] = SSTVEncoder.rgbToFrequency(r);
-            }
-            SSTVEncoder.playScanLine(redFreqs, 138);
+    private static void renderSilence(ByteArrayOutputStream buffer, 
+            double durationMs) {
+        int silenceSamples = (int)(durationMs * SAMPLE_RATE / 1000);
+        for (int i = 0; i < silenceSamples; i++) {
+            buffer.write(0);
+            buffer.write(0);
+        }
+    }
 
-            SSTVEncoder.playPorch(1); // Line porch
-
-            // Maintain line timing (445ms)
-            long elapsed = System.currentTimeMillis() - lineStart;
-            if (elapsed < 445) {
-                Thread.sleep(445 - elapsed);
+    private static void renderFSK(ByteArrayOutputStream buffer, 
+            int[] bits, int bitDurationMs) {
+        int samplesPerBit = (int)(bitDurationMs * SAMPLE_RATE / 1000);
+        for (int bit : bits) {
+            double freq = bit == 0 ? 1100 : 1300;
+            for (int i = 0; i < samplesPerBit; i++) {
+                short sample = (short)(Math.sin(2 * Math.PI * freq * i / SAMPLE_RATE) 
+                        * Short.MAX_VALUE);
+                buffer.write((byte)(sample & 0xFF));
+                buffer.write((byte)(sample >> 8 & 0xFF));
             }
         }
     }

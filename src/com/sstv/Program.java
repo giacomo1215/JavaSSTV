@@ -1,17 +1,15 @@
 package src.com.sstv;
 
-import javax.imageio.ImageIO;
-import javax.sound.sampled.*;
-import javax.swing.*;
-import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
+import java.util.Scanner;
 
 public class Program {
-    private static BufferedImage image;
+    public static Scanner in = new Scanner(System.in);
 
     public static void main(String[] args) {
-        //TO BE BUILT 
+        System.out.println("Insert file:");
+        String file = in.nextLine();
+        try {
+            SSTVImageEncoder.encodeImage(file);
+        }catch (Exception e){}
     }
 }
