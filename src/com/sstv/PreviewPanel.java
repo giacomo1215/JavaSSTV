@@ -1,4 +1,5 @@
-package src;
+package src.com.sstv;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;

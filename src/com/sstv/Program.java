@@ -1,4 +1,5 @@
-package src;
+package src.com.sstv;
+
 import javax.imageio.ImageIO;
 import javax.sound.sampled.*;
 import javax.swing.*;

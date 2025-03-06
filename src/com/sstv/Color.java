@@ -1,4 +1,5 @@
-package src;
+package src.com.sstv;
+
 public class Color {
     private final int r, g, b;
 

@@ -1,5 +1,5 @@
-package src;
-// ImageToSound.java
+package src.com.sstv;
+
 import javax.sound.sampled.*;
 import java.awt.image.BufferedImage;
 
@@ -30,7 +30,7 @@ public class ImageToSound {
         audioLine.start();
     }
 
-        public static void playImageTones(BufferedImage img) {
+    public static void playImageTones(BufferedImage img) {
         int width = img.getWidth();
         int height = img.getHeight();
         
@@ -95,7 +95,7 @@ public class ImageToSound {
         return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
     }
 
-    private static void generateTone(double freq, int durationMs) {
+    public static void generateTone(double freq, int durationMs) {
         byte[] buffer = new byte[(int)(SAMPLE_RATE * durationMs / 1000)];
         for (int i = 0; i < buffer.length; i++) {
             double angle = 2.0 * Math.PI * i * freq / SAMPLE_RATE;
