@@ -105,12 +105,18 @@ public class Sound {
         line.close();
     }
 
+    /**
+     * 
+     * @param bitStream
+     * @param bitDuration
+     * @throws LineUnavailableException
+     */
     public void playFSK(int[] bitStream, int bitDuration) throws LineUnavailableException {
         int samplesPerBit = (int) ((bitDuration / 1000.0) * SAMPLE_RATE);
         byte[] buffer = new byte[samplesPerBit * 2 * bitStream.length];
     
         for (int bitIndex = 0; bitIndex < bitStream.length; bitIndex++) {
-            double freq = (bitStream[bitIndex] == 0) ? startFreq : endFreq;
+            double freq = (bitStream[bitIndex] == 0) ? 1100 : 1300; // FSK tones
     
             for (int i = 0; i < samplesPerBit; i++) {
                 double angle = 2.0 * Math.PI * freq * i / SAMPLE_RATE;
