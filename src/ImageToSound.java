@@ -1,3 +1,4 @@
+package src;
 // ImageToSound.java
 import javax.sound.sampled.*;
 import java.awt.image.BufferedImage;

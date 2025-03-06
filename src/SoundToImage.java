@@ -1,3 +1,4 @@
+package src;
 import javax.sound.sampled.*;
 import java.io.File;
 import javax.imageio.ImageIO;

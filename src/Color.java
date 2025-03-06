@@ -1,3 +1,4 @@
+package src;
 public class Color {
     private final int r, g, b;
 
