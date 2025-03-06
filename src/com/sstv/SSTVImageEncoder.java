@@ -7,110 +7,146 @@ import javax.imageio.ImageIO;
 
 public class SSTVImageEncoder {
     private static final int SAMPLE_RATE = 44100;
-    private static final int LINE_DURATION_MS = 445;  // Scottie DX line duration
+    private static double phase = 0.0; // Track phase across all tones
+
+    // Add 5ms taper window for smooth transitions
+    private static final double TAPER_MS = 5.0;
     
     public static void encodeImage(String filename) throws Exception {
         BufferedImage img = ImageIO.read(new File(filename));
-        int width = img.getWidth();
-        int height = img.getHeight();
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         
-        ByteArrayOutputStream audioBuffer = new ByteArrayOutputStream();
+        // VIS Header with phase continuity
+        renderFSK(buffer, new int[]{0,1,1,0,1,0,0,0}, 30);
+        
+        // Vertical sync
+        renderTone(buffer, 1200, 9, true);
+        renderTone(buffer, 1500, 1.5, true);
 
-        // Add VIS Header (Scottie DX: 01101000 / 0x68)
-        int[] visCode = {0, 1, 1, 0, 1, 0, 0, 0};  // Correct 8-bit VIS
-        renderFSK(audioBuffer, visCode, 30);
-
-        // Vertical Sync (9ms 1200Hz + 1.5ms 1500Hz)
-        renderTone(audioBuffer, 1200, 9);
-        renderTone(audioBuffer, 1500, 1.5f);
-
-        for (int y = 0; y < height; y++) {
-            long lineStart = System.nanoTime();
-            
-            // Horizontal Sync
-            renderTone(audioBuffer, 1200, 9);
-            renderTone(audioBuffer, 1500, 1.5f);
-
-            // Green Channel (138.24ms)
-            renderColorChannel(audioBuffer, img, y, width, 1); // Green offset
-            renderTone(audioBuffer, 1500, 1.5f);  // Separator
-            
-            // Blue Channel (138.24ms)
-            renderColorChannel(audioBuffer, img, y, width, 0); // Blue offset
-            renderTone(audioBuffer, 1500, 1.5f);  // Separator
-            
-            // Red Channel (138.24ms)
-            renderColorChannel(audioBuffer, img, y, width, 2); // Red offset
-            renderTone(audioBuffer, 1500, 1.5f);  // Line porch
-
-            // Calculate remaining time for line duration
-            double elapsedMs = (System.nanoTime() - lineStart) / 1e6;
-            if (elapsedMs < LINE_DURATION_MS) {
-                renderSilence(audioBuffer, LINE_DURATION_MS - elapsedMs);
-            }
+        for(int y = 0; y < img.getHeight(); y++) {
+            renderLine(buffer, img, y);
         }
         
-        // Play entire audio in one operation
-        Sound.playBuffer(audioBuffer.toByteArray());
+        Sound.playBuffer(buffer.toByteArray());
     }
 
-    private static void renderColorChannel(ByteArrayOutputStream buffer, 
-            BufferedImage img, int y, int width, int colorOffset) {
-        double[] frequencies = new double[width];
-        for (int x = 0; x < width; x++) {
+    private static void renderLine(ByteArrayOutputStream buffer, 
+            BufferedImage img, int y) {
+        // Horizontal sync
+        renderTone(buffer, 1200, 9, true);
+        renderTone(buffer, 1500, 1.5, true);
+
+        renderColor(buffer, img, y, 1); // Green
+        renderTone(buffer, 1500, 1.5, true);
+        
+        renderColor(buffer, img, y, 0); // Blue
+        renderTone(buffer, 1500, 1.5, true);
+        
+        renderColor(buffer, img, y, 2); // Red
+        renderTone(buffer, 1500, 1.5, true);
+        
+        // Calculate remaining silence
+        double usedMs = 9 + 1.5 + (138.24 * 3) + (1.5 * 3);
+        renderSilence(buffer, 445 - usedMs);
+    }
+
+    private static void renderColor(ByteArrayOutputStream buffer,
+            BufferedImage img, int y, int colorOffset) {
+        double[] freqs = new double[img.getWidth()];
+        for(int x = 0; x < img.getWidth(); x++) {
             int rgb = img.getRGB(x, y);
-            int value = (rgb >> (8 * (2 - colorOffset))) & 0xFF; // 2=Red,1=Green,0=Blue
-            frequencies[x] = 1500 + (value / 255.0) * 800;
+            int val = (rgb >> (8 * (2 - colorOffset))) & 0xFF;
+            freqs[x] = 1500 + (val / 255.0) * 800;
         }
-        renderScanLine(buffer, frequencies, 138.24f);
+        renderSweep(buffer, freqs, 138.24);
     }
 
-    private static void renderTone(ByteArrayOutputStream buffer, 
-            double freq, float durationMs) {
+    private static void renderTone(ByteArrayOutputStream buffer,
+            double freq, double durationMs, boolean taper) {
         int samples = (int)(durationMs * SAMPLE_RATE / 1000);
-        for (int i = 0; i < samples; i++) {
-            short sample = (short)(Math.sin(2 * Math.PI * freq * i / SAMPLE_RATE) 
-                    * Short.MAX_VALUE);
-            buffer.write((byte)(sample & 0xFF));
-            buffer.write((byte)(sample >> 8 & 0xFF));
-        }
-    }
-
-    private static void renderScanLine(ByteArrayOutputStream buffer,
-            double[] frequencies, float durationMs) {
-        int totalSamples = (int)(durationMs * SAMPLE_RATE / 1000);
-        int samplesPerPixel = totalSamples / frequencies.length;
+        int taperSamples = (int)(TAPER_MS * SAMPLE_RATE / 1000);
         
-        for (int i = 0; i < totalSamples; i++) {
-            int px = Math.min(i / samplesPerPixel, frequencies.length - 1);
-            double freq = frequencies[px];
-            short sample = (short)(Math.sin(2 * Math.PI * freq * i / SAMPLE_RATE) 
-                    * Short.MAX_VALUE);
+        for(int i = 0; i < samples; i++) {
+            double amplitude = 1.0;
+            if(taper) {
+                // Apply cosine taper to first/last 5ms
+                amplitude = i < taperSamples ? 
+                    (0.5 - 0.5 * Math.cos(Math.PI * i / taperSamples)) :
+                    (i > samples - taperSamples ? 
+                     (0.5 - 0.5 * Math.cos(Math.PI * (samples - i) / taperSamples)) :
+                     1.0);
+            }
+            
+            short sample = (short)(Math.sin(phase) * Short.MAX_VALUE * amplitude);
+            phase += 2 * Math.PI * freq / SAMPLE_RATE;
+            
             buffer.write((byte)(sample & 0xFF));
-            buffer.write((byte)(sample >> 8 & 0xFF));
+            buffer.write((byte)(sample >> 8));
         }
     }
 
-    private static void renderSilence(ByteArrayOutputStream buffer, 
-            double durationMs) {
-        int silenceSamples = (int)(durationMs * SAMPLE_RATE / 1000);
-        for (int i = 0; i < silenceSamples; i++) {
-            buffer.write(0);
-            buffer.write(0);
+    private static void renderSweep(ByteArrayOutputStream buffer,
+            double[] freqs, double durationMs) {
+        int totalSamples = (int)(durationMs * SAMPLE_RATE / 1000);
+        double samplesPerPixel = (double)totalSamples / freqs.length;
+        int taperSamples = (int)(TAPER_MS * SAMPLE_RATE / 1000);
+
+        for(int i = 0; i < totalSamples; i++) {
+            int px = (int)(i / samplesPerPixel);
+            double freq = freqs[Math.min(px, freqs.length - 1)];
+            
+            // Smooth frequency transitions
+            double alpha = (i % samplesPerPixel) / samplesPerPixel;
+            if(px < freqs.length - 1) {
+                freq = freqs[px] * (1 - alpha) + freqs[px + 1] * alpha;
+            }
+
+            // Apply window to entire sweep
+            double amplitude = 1.0;
+            if(i < taperSamples) {
+                amplitude = 0.5 - 0.5 * Math.cos(Math.PI * i / taperSamples);
+            } else if(i > totalSamples - taperSamples) {
+                amplitude = 0.5 - 0.5 * Math.cos(Math.PI * (totalSamples - i) / taperSamples);
+            }
+
+            short sample = (short)(Math.sin(phase) * Short.MAX_VALUE * amplitude);
+            phase += 2 * Math.PI * freq / SAMPLE_RATE;
+            
+            buffer.write((byte)(sample & 0xFF));
+            buffer.write((byte)(sample >> 8));
         }
     }
 
-    private static void renderFSK(ByteArrayOutputStream buffer, 
+    private static void renderFSK(ByteArrayOutputStream buffer,
             int[] bits, int bitDurationMs) {
         int samplesPerBit = (int)(bitDurationMs * SAMPLE_RATE / 1000);
-        for (int bit : bits) {
+        int taperSamples = (int)(TAPER_MS * SAMPLE_RATE / 1000);
+
+        for(int bit : bits) {
             double freq = bit == 0 ? 1100 : 1300;
-            for (int i = 0; i < samplesPerBit; i++) {
-                short sample = (short)(Math.sin(2 * Math.PI * freq * i / SAMPLE_RATE) 
-                        * Short.MAX_VALUE);
+            for(int i = 0; i < samplesPerBit; i++) {
+                double amplitude = 1.0;
+                if(i < taperSamples || i > samplesPerBit - taperSamples) {
+                    amplitude = 0.5 - 0.5 * Math.cos(Math.PI * 
+                        Math.min(i, samplesPerBit - i) / taperSamples);
+                }
+                
+                short sample = (short)(Math.sin(phase) * Short.MAX_VALUE * amplitude);
+                phase += 2 * Math.PI * freq / SAMPLE_RATE;
+                
                 buffer.write((byte)(sample & 0xFF));
-                buffer.write((byte)(sample >> 8 & 0xFF));
+                buffer.write((byte)(sample >> 8));
             }
+        }
+    }
+
+    private static void renderSilence(ByteArrayOutputStream buffer,
+            double durationMs) {
+        int samples = (int)(durationMs * SAMPLE_RATE / 1000);
+        for(int i = 0; i < samples; i++) {
+            buffer.write(0);
+            buffer.write(0);
+            phase += 0; // Maintain phase even during silence
         }
     }
 }
