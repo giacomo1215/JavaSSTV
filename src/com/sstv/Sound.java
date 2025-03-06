@@ -5,9 +5,8 @@ import java.io.ByteArrayOutputStream;
 import javax.sound.sampled.*;
 
 public class Sound {
-    // private static final int SAMPLE_RATE = 11025;   // Sample rate in Hz (low-quality for reduced processing load)
     private static final int SAMPLE_RATE = 44100;   // Sample rate in Hz (low-quality for reduced processing load)
-    private static SourceDataLine line;
+    private static SourceDataLine line;             // 
     private double frequency;                       // Frequency of the tone in Hz
     private double startFreq;                       // Frequency of the start tone in Hz (FSK)
     private double endFreq;                         // Frequency of the end tone in Hz   (FSK)
@@ -109,39 +108,6 @@ public class Sound {
         AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
 
         // Open an audio line and play the generated sound
-        line = AudioSystem.getSourceDataLine(format);
-        line.open(format);
-        line.start();
-        line.write(buffer, 0, buffer.length);
-        line.drain();
-        line.close();
-    }
-
-    /**
-     * 
-     * @param bitStream
-     * @param bitDuration
-     * @throws LineUnavailableException
-     */
-    public void playFSK(int[] bitStream, int bitDuration) throws LineUnavailableException {
-        int samplesPerBit = (int) ((bitDuration / 1000.0) * SAMPLE_RATE);
-        byte[] buffer = new byte[samplesPerBit * 2 * bitStream.length];
-    
-        for (int bitIndex = 0; bitIndex < bitStream.length; bitIndex++) {
-            double freq = (bitStream[bitIndex] == 0) ? 1100 : 1300; // FSK tones
-    
-            for (int i = 0; i < samplesPerBit; i++) {
-                double angle = 2.0 * Math.PI * freq * i / SAMPLE_RATE;
-                short sample = (short) (Math.sin(angle) * Short.MAX_VALUE);
-    
-                int pos = (bitIndex * samplesPerBit + i) * 2;
-                buffer[pos] = (byte) (sample & 0xFF);
-                buffer[pos + 1] = (byte) ((sample >> 8) & 0xFF);
-            }
-        }
-    
-        // Play the generated FSK signal
-        AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
         line = AudioSystem.getSourceDataLine(format);
         line.open(format);
         line.start();
