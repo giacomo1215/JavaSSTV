@@ -3,24 +3,9 @@
 ## 1. Project Overview
 JavaSSTV is a Java-based library and application for encoding images into SSTV (Slow Scan Television) audio signals. SSTV is a method used primarily by amateur radio operators to transmit and receive static images via radio. This implementation focuses on converting images into audio signals that can be transmitted over radio frequencies using the `Scottie DX` protocol
 
-## 2. Package Structure
+## 2. Core Components
 
-The codebase is organized into the following structure:
-
-* `src/com/sstv/` - Contains the core SSTV encoding components
-* `Color.java` - Color representation and conversion
-* `ImagePanel.java` - UI component for displaying image data
-* `PreviewPanel.java` - UI component for image preview
-* `Program.java` - Main entry point for the application
-* `Sound.java` - Sound generation and manipulation
-* `SSTVEncoder.java` - Basic SSTV encoding utilities
-* `SSTVImageEncoder.java` - Complete image to SSTV audio encoder
-* `tests/` - Contains test cases
-* `SoundOutput.java` - Test for audio output functionality
-
-## 3. Core Components
-
-### 3.1 Sound Engine
+### 2.1 Sound Engine
 
 The Sound class is the foundation of the audio generation system. It provides functionality to:
 
@@ -28,7 +13,8 @@ The Sound class is the foundation of the audio generation system. It provides fu
 * Create FSK (Frequency Shift Keying) modulated signals
 * Render audio data to buffers
 * Play audio through the system's audio output
-### 3.2 SSTV Encoding
+  
+### 2.2 SSTV Encoding
 
 Two key classes handle SSTV encoding:
 
@@ -40,9 +26,9 @@ For visual representation:
 * `ImagePanel` - Displays image data with customizable pixel size
 * `PreviewPanel` - Provides a scalable preview of images being processed
 
-## 4. Class Documentation
+## 3. Class Documentation
 
-### 4.1 Color
+### 3.1 Color
 Custom color implementation with RGB components and conversion utilities.
 
 **Key Features:**
@@ -58,7 +44,7 @@ Custom color implementation with RGB components and conversion utilities.
 * `getDecimal()` - Get color as decimal integer
 * `toYCbCr()` - Convert to YCbCr color space
 
-### 4.2 Sound
+### 3.2 Sound
 
 Core audio generation class for creating tones and signals.
 
@@ -80,7 +66,7 @@ Core audio generation class for creating tones and signals.
 **Constants:**
 * `SAMPLE_RATE` - 44100 Hz (CD quality audio)
 
-### 4.3 SSTVEncoder
+### 3.3 SSTVEncoder
 Utility class with basic SSTV encoding functions.
 
 **Methods:**
@@ -90,7 +76,7 @@ Utility class with basic SSTV encoding functions.
 * `playScanLine()` - Play a scan line with specified frequencies
 * `rgbToFrequency()` - Convert RGB color component to corresponding SSTV frequency
 
-### 4.4 SSTVImageEncoder
+### 3.4 SSTVImageEncoder
 Advanced encoder that converts image files to SSTV audio signals.
 
 **Key Features:**
@@ -110,14 +96,14 @@ Advanced encoder that converts image files to SSTV audio signals.
 * `renderFSK()` - Generate FSK signals for control data
 * `renderSilence()` - Generate a silent period
 
-### 4.5 ImagePanel
+### 3.5 ImagePanel
 UI component for displaying image data with customizable pixel size.
 
 **Key Features:**
 * Custom rendering of color matrix data
 * Configurable pixel size for display
 
-### 4.6 PreviewPanel
+### 3.6 PreviewPanel
 UI component for displaying image preview with scaling.
 
 **Key Features:**
@@ -133,15 +119,15 @@ UI component for displaying image preview with scaling.
 * `getImage()` - Get the underlying BufferedImage
 
 
-## 5. Technical Details
+## 4. Technical Details
 
-### 5.1 Audio Specifications
+### 4.1 Audio Specifications
 * Sample Rate: 44100 Hz (CD quality)
 * Bit Depth: 16-bit PCM
 * Channels: Mono
 * Encoding: Little-endian signed PCM
 
-## 5.2 SSTV Protocol Implementation
+## 4.2 SSTV Protocol Implementation
 
 The encoder implements a typical SSTV protocol with:
 * VIS header (8-bit code)
@@ -151,7 +137,7 @@ The encoder implements a typical SSTV protocol with:
 * RGB color channel separation
 * Frequency mapping: 1500-2300 Hz for brightness values
 
-## 5.3 Signal Improvements
+## 4.3 Signal Improvements
 Phase continuity maintained across all tones
 Tapering (5ms windows) used to reduce audio artifacts
 Smooth transitions between frequencies during scan lines
