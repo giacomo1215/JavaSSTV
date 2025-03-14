@@ -1,7 +1,7 @@
 # JavaSSTV Documentation
 
 ## 1. Project Overview
-JavaSSTV is a Java-based library and application for encoding images into SSTV (Slow Scan Television) audio signals. SSTV is a method used primarily by amateur radio operators to transmit and receive static images via radio. This implementation focuses on converting images into audio signals that can be transmitted over radio frequencies using the `Scottie DX` protocol
+JavaSSTV is a Java-based library and application for encoding images into SSTV (Slow Scan Television) audio signals. SSTV is a method used primarily by amateur radio operators to transmit and receive static images via radio. This implementation focuses on converting images into audio signals that can be transmitted over radio frequencies using the `Scottie DX` protocol. I'm doing this purely to practice my own skillset in applied scenarios, this is by no means "the correct way" to go about it I think.
 
 ## 2. Core Components
 
