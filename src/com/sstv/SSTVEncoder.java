@@ -3,6 +3,11 @@ package src.com.sstv;
 import javax.sound.sampled.LineUnavailableException;
 
 public class SSTVEncoder {
+    // Add Scottie DX timing constants
+    public static final double SYNC_MS = 9.0;
+    public static final double PORCH_MS = 1.5;
+    public static final double SCAN_MS = 345.6;
+    public static final double LINE_MS = 508.3;
 
     /**
      * Play a sync pulse (1200 Hz for specified duration)

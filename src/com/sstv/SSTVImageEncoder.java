@@ -11,13 +11,20 @@ public class SSTVImageEncoder {
 
     // Add 5ms taper window for smooth transitions
     private static final double TAPER_MS = 5.0;
+
+    // Add Scottie DX timing constants
+    private static final double SYNC_MS = 9.0;
+    private static final double PORCH_MS = 1.5;
+    private static final double SCAN_MS = 345.6;
+    private static final double LINE_MS = 508.3;
+    
     
     public static void encodeImage(String filename) throws Exception {
         BufferedImage img = ImageIO.read(new File(filename));
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         
         // VIS Header with phase continuity
-        renderFSK(buffer, new int[]{0,1,1,0,1,0,0,0}, 30);
+        renderFSK(buffer, new int[]{0,0,1,1,1,1,0,0}, 30);
         
         // Vertical sync
         renderTone(buffer, 1200, 9, true);
@@ -33,21 +40,21 @@ public class SSTVImageEncoder {
     private static void renderLine(ByteArrayOutputStream buffer, 
             BufferedImage img, int y) {
         // Horizontal sync
-        renderTone(buffer, 1200, 9, true);
-        renderTone(buffer, 1500, 1.5, true);
+        renderTone(buffer, 1200, SYNC_MS, true);
+        renderTone(buffer, 1500, PORCH_MS, true);
 
         renderColor(buffer, img, y, 1); // Green
-        renderTone(buffer, 1500, 1.5, true);
+        renderTone(buffer, 1500, PORCH_MS, true);
         
         renderColor(buffer, img, y, 0); // Blue
-        renderTone(buffer, 1500, 1.5, true);
+        renderTone(buffer, 1500, PORCH_MS, true);
         
         renderColor(buffer, img, y, 2); // Red
-        renderTone(buffer, 1500, 1.5, true);
+        renderTone(buffer, 1500, PORCH_MS, true);
         
         // Calculate remaining silence
-        double usedMs = 9 + 1.5 + (138.24 * 3) + (1.5 * 3);
-        renderSilence(buffer, 445 - usedMs);
+        double usedMs = SYNC_MS + PORCH_MS + (SCAN_MS * 3) + (PORCH_MS * 3);
+        renderSilence(buffer, LINE_MS - usedMs);
     }
 
     private static void renderColor(ByteArrayOutputStream buffer,
@@ -58,7 +65,7 @@ public class SSTVImageEncoder {
             int val = (rgb >> (8 * (2 - colorOffset))) & 0xFF;
             freqs[x] = 1500 + (val / 255.0) * 800;
         }
-        renderSweep(buffer, freqs, 138.24);
+        renderSweep(buffer, freqs, SCAN_MS);
     }
 
     private static void renderTone(ByteArrayOutputStream buffer,
