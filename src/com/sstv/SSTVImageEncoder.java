@@ -60,7 +60,6 @@ public class SSTVImageEncoder {
         double[] freqs = new double[img.getWidth()];
         for(int x = 0; x < img.getWidth(); x++) {
             int rgb = img.getRGB(x, y);
-            // int val = (rgb >> (8 * (2 - colorOffset))) & 0xFF;
             int val = (rgb >> (8 * colorOffset)) & 0xFF;
             freqs[x] = 1500 + (val / 255.0) * 800;
         }
