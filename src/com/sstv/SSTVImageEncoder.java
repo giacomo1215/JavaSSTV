@@ -37,10 +37,12 @@ public class SSTVImageEncoder {
         Sound.playBuffer(buffer.toByteArray());
     }
 
-    private static void renderLine(ByteArrayOutputStream buffer, 
-            BufferedImage img, int y) {
+    private static void renderLine(ByteArrayOutputStream buffer, BufferedImage img, int y) {
         // Horizontal sync
         renderTone(buffer, 1200, SYNC_MS, true);
+        renderTone(buffer, 1500, PORCH_MS, true);
+        
+        renderColor(buffer, img, y, 2); // Red
         renderTone(buffer, 1500, PORCH_MS, true);
 
         renderColor(buffer, img, y, 1); // Green
@@ -49,27 +51,23 @@ public class SSTVImageEncoder {
         renderColor(buffer, img, y, 0); // Blue
         renderTone(buffer, 1500, PORCH_MS, true);
         
-        renderColor(buffer, img, y, 2); // Red
-        renderTone(buffer, 1500, PORCH_MS, true);
-        
         // Calculate remaining silence
         double usedMs = SYNC_MS + PORCH_MS + (SCAN_MS * 3) + (PORCH_MS * 3);
         renderSilence(buffer, LINE_MS - usedMs);
     }
 
-    private static void renderColor(ByteArrayOutputStream buffer,
-            BufferedImage img, int y, int colorOffset) {
+    private static void renderColor(ByteArrayOutputStream buffer, BufferedImage img, int y, int colorOffset) {
         double[] freqs = new double[img.getWidth()];
         for(int x = 0; x < img.getWidth(); x++) {
             int rgb = img.getRGB(x, y);
-            int val = (rgb >> (8 * (2 - colorOffset))) & 0xFF;
+            // int val = (rgb >> (8 * (2 - colorOffset))) & 0xFF;
+            int val = (rgb >> (8 * colorOffset)) & 0xFF;
             freqs[x] = 1500 + (val / 255.0) * 800;
         }
         renderSweep(buffer, freqs, SCAN_MS);
     }
 
-    private static void renderTone(ByteArrayOutputStream buffer,
-            double freq, double durationMs, boolean taper) {
+    private static void renderTone(ByteArrayOutputStream buffer, double freq, double durationMs, boolean taper) {
         int samples = (int)(durationMs * SAMPLE_RATE / 1000);
         int taperSamples = (int)(TAPER_MS * SAMPLE_RATE / 1000);
         
@@ -92,8 +90,7 @@ public class SSTVImageEncoder {
         }
     }
 
-    private static void renderSweep(ByteArrayOutputStream buffer,
-            double[] freqs, double durationMs) {
+    private static void renderSweep(ByteArrayOutputStream buffer, double[] freqs, double durationMs) {
         int totalSamples = (int)(durationMs * SAMPLE_RATE / 1000);
         double samplesPerPixel = (double)totalSamples / freqs.length;
         int taperSamples = (int)(TAPER_MS * SAMPLE_RATE / 1000);
@@ -124,8 +121,7 @@ public class SSTVImageEncoder {
         }
     }
 
-    private static void renderFSK(ByteArrayOutputStream buffer,
-            int[] bits, int bitDurationMs) {
+    private static void renderFSK(ByteArrayOutputStream buffer, int[] bits, int bitDurationMs) {
         int samplesPerBit = (int)(bitDurationMs * SAMPLE_RATE / 1000);
         int taperSamples = (int)(TAPER_MS * SAMPLE_RATE / 1000);
 
@@ -147,8 +143,7 @@ public class SSTVImageEncoder {
         }
     }
 
-    private static void renderSilence(ByteArrayOutputStream buffer,
-            double durationMs) {
+    private static void renderSilence(ByteArrayOutputStream buffer, double durationMs) {
         int samples = (int)(durationMs * SAMPLE_RATE / 1000);
         for(int i = 0; i < samples; i++) {
             buffer.write(0);
