@@ -82,13 +82,13 @@ public class SSTVDecoder {
                     break;
                     
                 case SYNC:
-                    if (detectTone(1200, 9)) { // 9ms 1200Hz sync pulse
+                    if (detectTone(1200, SYNC_MS)) { // 9ms 1200Hz sync pulse
                         state = DecodeState.PORCH;
                     }
                     break;
                     
                 case PORCH:
-                    if (detectTone(1500, 1.5)) { // 1.5ms 1500Hz porch
+                    if (detectTone(1500, PORCH_MS)) { // 1.5ms 1500Hz porch
                         state = DecodeState.LINE;
                         colorChannel = 0;
                     }
